@@ -1,3 +1,15 @@
+// ATtiny based 1S 3.7V LiPo battery charger
+
+/*
+Author  :  Pranjal Joshi
+Date    :  09-05-2014
+License :  GNU GPL v2 (Relased in public domain as open-source).
+Disclaimer :
+    This code may contain bugs as it is in development stage.
+    Feel free to edit/improve/share.
+Updates will be always available at http://github.com/pranjal-joshi/ATtiny_1S_LiPo_Charger/edit/master/lipo_charger.ino
+*/
+
 #include <avr/sleep.h>
 #include <avr/wdt.h>
 
