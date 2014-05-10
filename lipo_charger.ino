@@ -17,7 +17,7 @@ Updates will be always available at http://github.com/pranjal-joshi/ATtiny_1S_Li
 #define lipoPin A3
 #define vccPin A1
 #define ledPin 0
-
+#define SLEEPTIME 200
 /*
   LED configuration:
   red : charging (source from ledPin)
@@ -42,7 +42,7 @@ Updates will be always available at http://github.com/pranjal-joshi/ATtiny_1S_Li
 // global variables
 float lipoVoltage=0, vcc=0;
 volatile boolean f_wdt = 1;
-boolean vccOK = true;
+boolean vccOK = false;
 
 void setup()
 {
@@ -50,7 +50,7 @@ void setup()
   digitalWrite(chargePin,LOW);
   pinMode(ledPin,OUTPUT);
   digitalWrite(ledPin,LOW);
-  initWatchdog(6);      // sleep for 1 sec
+  initWatchdog(6);  // sleep for 1 sec
 }
 
 void loop()
@@ -58,18 +58,18 @@ void loop()
   // watchdog flag
   if(f_wdt)
     f_wdt = 0;
-   
+  
   // check VCC if its more than 5.1V then stop charging
-  vcc = (float)map(analogRead(vccPin),0,1023,0,5.15);
-  if(vcc > 5.10)
+  uint16_t vccValue = getVcc();
+  if(vccValue > 5100 || vccValue < 3700)
   {
-    reduceVcc();
     vccOK = false;
+    reduceVcc();
   }
   else
     vccOK = true;
-
-  // check for current voltage of lipo & safty VCC level
+  
+  // check for current voltage of lipo & safty VCC level  
   lipoVoltage = (float)map(analogRead(lipoPin),0,1023,0.00,4.10);
   if(lipoVoltage > 4.05 || vccOK == false)
   {
@@ -81,7 +81,7 @@ void loop()
     digitalWrite(chargePin,HIGH);
     digitalWrite(ledPin,LOW);
   }
-  gotoSleep();      // sleep for 1024ms to save power
+  gotoSleep();    // sleep for 1024ms to save power
 }
 
 void reduceVcc()    // stop charging & blink leds
@@ -95,7 +95,7 @@ void reduceVcc()    // stop charging & blink leds
 }
 
 
-void initWatchdog(uint8_t time)     // initialize watchdog timer
+void initWatchdog(uint8_t time)  // initialize watchdog timer
 {
   /*
   watchdog time (time to wake up after entering sleep)
@@ -124,12 +124,12 @@ void initWatchdog(uint8_t time)     // initialize watchdog timer
   WDTCR |= _BV(WDIE);
 }
 
-ISR(WDT_vect)       // watchdog ISR to wake-up
+ISR(WDT_vect)  // watchdog ISR to wake-up
 {
   f_wdt = 1;
 }
 
-void gotoSleep()        // activate & de-activate sleep mode
+void gotoSleep()  // activate & de-activate sleep mode
 {
   cbi(ADCSRA,ADEN);
   set_sleep_mode(SLEEP_MODE_PWR_DOWN);
@@ -137,4 +137,23 @@ void gotoSleep()        // activate & de-activate sleep mode
   sleep_mode();
   sleep_disable();
   sbi(ADCSRA,ADEN);
+}
+
+unsigned int getVcc()  // get Vcc in mV using internal 1.1v ref
+{
+  #if defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
+    ADMUX = _BV(MUX3) | _BV(MUX2);
+  #else
+    ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
+  #endif
+    
+    delay(5);
+    ADCSRA |= _BV(ADSC);
+    while(bit_is_set(ADCSRA,ADSC));
+    uint8_t low = ADCL;
+    uint8_t high = ADCH;
+    uint16_t vcc = (high << 8) | low;
+    vcc = (1.1*1023*1000)/vcc;
+    
+    return vcc;
 }
